@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERD &amp; PostgreSQL — Teaching Page</title>
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg:#eef2f7; --card:#fff; --ink:#1e293b; --muted:#64748b;
+    --accent:#4f46e5; --accent2:#0ea5e9; --border:#dbe3ec;
+  }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',sans-serif;
+    line-height:1.55;
+  }
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    background:#0f172a; color:#fff; padding:14px 22px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between;
+    box-shadow:0 2px 14px rgba(15,23,42,.25);
+  }
+  .brand{display:flex; align-items:center; gap:12px}
+  .logo{
+    width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#6366f1,#0ea5e9); font-weight:800; font-size:15px; letter-spacing:.5px;
+  }
+  .brand h1{font-size:16px;margin:0;font-weight:700}
+  .brand p{margin:0;font-size:12px;color:#94a3b8}
+  .tabs-main{display:flex;gap:8px;flex-wrap:wrap}
+  .tabbtn{
+    background:#1e293b;color:#cbd5e1;border:1px solid #334155;
+    padding:9px 16px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;
+  }
+  .tabbtn:hover{background:#273549;color:#fff}
+  .tabbtn.active{background:linear-gradient(135deg,#6366f1,#0ea5e9);border-color:transparent;color:#fff}
+
+  main{padding:22px; max-width:1280px; margin:0 auto}
+  .panel{display:none}
+  .panel.active{display:block; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ---------- ERD ---------- */
+  .section-title{font-size:15px;font-weight:700;margin:0 0 10px;color:#334155;letter-spacing:.3px}
+  .hint{font-size:13px;color:var(--muted);margin:0 0 14px}
+  .erd-wrap{
+    background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;
+    box-shadow:0 4px 18px rgba(15,23,42,.05);
+  }
+  .erd-scroll{overflow-x:auto;padding-bottom:6px}
+  #erdCanvas{position:relative;width:900px;height:640px;margin:0 auto}
+  #erdLines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .rel-line{fill:none;stroke:#94a3b8;stroke-width:2;stroke-linejoin:round}
+  .rel-dot{fill:#94a3b8}
+  .rel-label{
+    font-family:Consolas,monospace;font-size:11px;font-weight:700;fill:#475569;
+    stroke:#fff;stroke-width:4;paint-order:stroke;stroke-linejoin:round;
+  }
+
+  .entity{
+    position:absolute;width:210px;background:#fff;border:2px solid #cbd5e1;border-radius:11px;
+    overflow:hidden;cursor:pointer;transition:transform .15s, border-color .15s, box-shadow .15s;
+    box-shadow:0 2px 6px rgba(15,23,42,.07); user-select:none;
+  }
+  .entity:hover{border-color:#6366f1;transform:translateY(-2px);box-shadow:0 10px 22px rgba(79,70,229,.18)}
+  .entity.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.22),0 12px 26px rgba(79,70,229,.22)}
+  .entity-head{
+    background:#1e293b;color:#fff;padding:8px 12px;font-weight:700;font-size:13.5px;
+    font-family:Consolas,monospace;letter-spacing:.4px;
+  }
+  .entity.active .entity-head{background:linear-gradient(135deg,#4f46e5,#0ea5e9)}
+  .entity-fields{list-style:none;margin:0;padding:5px 0}
+  .entity-fields li{
+    height:24px;padding:0 10px;display:flex;align-items:center;gap:7px;
+    font-family:Consolas,monospace;font-size:12px;line-height:1;
+  }
+  .fkey{width:22px;font-size:9px;font-weight:800;text-align:center;border-radius:3px;padding:2px 0;letter-spacing:.3px}
+  .fkey.pk{background:#fef3c7;color:#b45309}
+  .fkey.fk{background:#dbeafe;color:#1d4ed8}
+  .fname{flex:1;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ftype{color:#94a3b8;font-size:11px}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:6px}
+
+  /* ---------- CRUD panel ---------- */
+  .crud-panel{
+    margin-top:20px;background:#fff;border:1px solid var(--border);border-radius:14px;
+    box-shadow:0 4px 18px rgba(15,23,42,.06);overflow:hidden;display:none;
+  }
+  .crud-panel.show{display:block;animation:fade .22s ease}
+  .crud-head{padding:16px 20px 0}
+  .crud-head h3{margin:0;font-size:18px;font-family:Consolas,monospace;color:var(--accent)}
+  .crud-head p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+  .crud-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:14px 20px 0;border-bottom:1px solid var(--border)}
+  .crud-tab{
+    background:#f1f5f9;border:1px solid var(--border);border-bottom:none;color:#475569;
+    padding:8px 14px;border-radius:8px 8px 0 0;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;
+  }
+  .crud-tab:hover{background:#e2e8f0}
+  .crud-tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+  .crud-body{padding:16px 20px 20px}
+
+  /* ---------- code blocks ---------- */
+  pre{
+    position:relative;background:#0f172a;color:#e2e8f0;padding:16px 16px;border-radius:10px;
+    overflow-x:auto;font-size:13px;line-height:1.6;margin:0;
+  }
+  pre code{font-family:Consolas,'JetBrains Mono',Menlo,monospace;white-space:pre}
+  .tok-kw{color:#7dd3fc;font-weight:700}
+  .tok-str{color:#86efac}
+  .tok-num{color:#fbbf24}
+  .tok-com{color:#64748b;font-style:italic}
+  .copy-btn{
+    position:absolute;top:8px;right:8px;background:#1e293b;color:#94a3b8;border:1px solid #334155;
+    border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;
+  }
+  .copy-btn:hover{background:#334155;color:#fff}
+
+  /* ---------- PostgreSQL reference ---------- */
+  .pg-toolbar{
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;
+    background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;
+    box-shadow:0 4px 14px rgba(15,23,42,.05);
+  }
+  .pg-toolbar input{
+    flex:1;min-width:220px;padding:10px 14px;border:1px solid var(--border);border-radius:9px;
+    font-size:13.5px;outline:none;font-family:inherit;
+  }
+  .pg-toolbar input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+  .pg-toolbar span{font-size:12.5px;color:var(--muted)}
+
+  details.pg-sec{
+    background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;
+    box-shadow:0 2px 10px rgba(15,23,42,.04);overflow:hidden;
+  }
+  details.pg-sec summary{
+    cursor:pointer;padding:14px 18px;font-weight:700;font-size:14.5px;color:#1e293b;
+    list-style:none;display:flex;align-items:center;gap:10px;background:#f8fafc;
+  }
+  details.pg-sec summary::-webkit-details-marker{display:none}
+  details.pg-sec summary::before{
+    content:'▸';color:var(--accent);font-size:13px;transition:transform .15s;
+  }
+  details.pg-sec[open] summary::before{transform:rotate(90deg)}
+  details.pg-sec[open] summary{border-bottom:1px solid var(--border)}
+  .pg-items{padding:16px 18px}
+  .pg-item{margin-bottom:18px}
+  .pg-item:last-child{margin-bottom:0}
+  .pg-label{
+    font-size:12.5px;font-weight:700;color:#475569;margin-bottom:7px;
+    text-transform:uppercase;letter-spacing:.5px;
+  }
+  .pg-item ul{margin:0;padding-left:20px;font-size:13.5px;color:#334155}
+  .pg-item li{margin-bottom:6px}
+
+  footer{text-align:center;padding:26px;color:#94a3b8;font-size:12.5px}
+  @media(max-width:700px){
+    .brand h1{font-size:14px}
+    main{padding:14px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">DB</div>
+    <div>
+      <h1>ERD &amp; PostgreSQL Teaching Page</h1>
+      <p>Click any table in the diagram to see its CRUD queries.</p>
+    </div>
+  </div>
+  <nav class="tabs-main">
+    <button class="tabbtn active" data-target="erd">📊 ERD &amp; CRUD</button>
+    <button class="tabbtn" data-target="pg">🐘 PostgreSQL Reference</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ================= ERD ================= -->
+  <section id="erd" class="panel active">
+    <div class="erd-wrap">
+      <h2 class="section-title">Sample Shop Database — Entity Relationship Diagram</h2>
+      <p class="hint">A small but realistic e-commerce schema. Click a table to open its SQL (DDL + CRUD).</p>
+
+      <div class="erd-scroll">
+        <div id="erdCanvas">
+          <svg id="erdLines" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><span class="fkey pk" style="display:inline-block">PK</span> Primary Key</span>
+        <span><span class="fkey fk" style="display:inline-block">FK</span> Foreign Key</span>
+        <span>🔗 Relationship: <strong>1 : N</strong> (one → many)</span>
+      </div>
+    </div>
+
+    <div id="crudPanel" class="crud-panel">
+      <div class="crud-head">
+        <h3 id="crudTitle"></h3>
+        <p id="crudDesc"></p>
+      </div>
+      <div class="crud-tabs" id="crudTabs"></div>
+      <div class="crud-body">
+        <pre><code id="crudCode"></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= POSTGRESQL ================= -->
+  <section id="pg" class="panel">
+    <div class="pg-toolbar">
+      <input id="pgSearch" type="search" placeholder="🔍 Search queries… (e.g. JOIN, window, index, jsonb)">
+      <span id="pgCount"></span>
+    </div>
+    <div id="pgContent"></div>
+  </section>
+</main>
+
+<footer>Built as a teaching aid · All examples use the same 5-table shop schema shown in the ERD.</footer>
+
+<script>
+/* =========================================================
+   1. SQL SYNTAX HIGHLIGHTER
+   ========================================================= */
+const KW_LIST = ['SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE','TABLE',
+'ALTER','DROP','ADD','COLUMN','CONSTRAINT','PRIMARY','KEY','FOREIGN','REFERENCES','UNIQUE','NOT','NULL',
+'DEFAULT','CHECK','INDEX','ON','AND','OR','IN','IS','AS','JOIN','LEFT','RIGHT','INNER','OUTER','FULL',
+'CROSS','LATERAL','GROUP','BY','ORDER','HAVING','LIMIT','OFFSET','DISTINCT','UNION','ALL','INTERSECT',
+'EXCEPT','CASE','WHEN','THEN','ELSE','END','WITH','RECURSIVE','RETURNING','CONFLICT','DO','NOTHING',
+'CASCADE','RESTRICT','TRUNCATE','VIEW','MATERIALIZED','FUNCTION','RETURNS','LANGUAGE','BEGIN','COMMIT',
+'ROLLBACK','SAVEPOINT','TRANSACTION','SERIAL','BIGSERIAL','INTEGER','INT','BIGINT','SMALLINT','TEXT',
+'VARCHAR','CHAR','BOOLEAN','DATE','TIMESTAMP','TIMESTAMPTZ','NUMERIC','DECIMAL','REAL','DOUBLE',
+'PRECISION','JSON','JSONB','ARRAY','EXISTS','BETWEEN','LIKE','ILIKE','OVER','PARTITION','ROW_NUMBER',
+'RANK','DENSE_RANK','LAG','LEAD','NTILE','SUM','COUNT','AVG','MIN','MAX','COALESCE','NULLIF','CAST',
+'USING','GRANT','REVOKE','EXPLAIN','ANALYZE','VACUUM','SEQUENCE','IDENTITY','GENERATED','ALWAYS','IF',
+'LOOP','DECLARE','RAISE','TRIGGER','BEFORE','AFTER','EACH','ROW','EXECUTE','STABLE','IMMUTABLE',
+'VOLATILE','SECURITY','DEFINER','SETOF','RETURN','QUERY','PLPGSQL','NOW','INTERVAL','EXTRACT','REPLACE',
+'CONCURRENTLY','RENAME','TO','TYPE','OWNER','PASSWORD','LOGIN','ROLE','USER','SCHEMA','DATABASE',
+'TEMPORARY','TEMP','ONLY','FETCH','FIRST','NEXT','ROWS','PRECEDING','FOLLOWING','CURRENT','UNBOUNDED',
+'FILTER','ROLLUP','CUBE','GROUPING','SETS','MATCH','ANY','SOME','ESCAPE','SIMILAR','COLLATE','AT',
+'TIME','ZONE','FORMAT','LEAST','GREATEST','POSITION','SUBSTRING','TRIM','UPPER','LOWER','LENGTH',
+'CONCAT','SPLIT_PART','TO_CHAR','TO_DATE','DATE_TRUNC','AGE','GENERATE_SERIES','UNNEST','ARRAY_AGG',
+'STRING_AGG','JSONB_AGG','JSON_AGG','COPY','CALL','PROCEDURE','PERFORM','NEW','OLD','FOR','SHARE',
+'NO','UPDATE','LEVEL','ISOLATION','READ','WRITE','ONLY','OFF','LOCAL','SESSION','ADVISORY','LOCK',
+'VERSION','REINDEX','PRIVILEGES','USAGE','CONNECT','PUBLIC','NOWAIT','SKIP','LOCKED','NULLS','LAST'];
+
+const SQL_RE = new RegExp(
+  "(--[^\\n]*)" +
+  "|('(?:[^']|'')*')" +
+  "|(\\b\\d+(?:\\.\\d+)?\\b)" +
+  "|(\\b(?:" + KW_LIST.join('|') + ")\\b)",
+  'gi'
+);
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightSQL(src){
+  return escapeHtml(src).replace(SQL_RE, (m, com, str, num, kw) => {
+    if (com) return '<span class="tok-com">' + com + '</span>';
+    if (str) return '<span class="tok-str">' + str + '</span>';
+    if (num) return '<span class="tok-num">' + num + '</span>';
+    if (kw)  return '<span class="tok-kw">'  + kw  + '</span>';
+    return m;
+  });
+}
+
+/* Adds a "Copy" button to every <pre> inside root */
+function addCopyButtons(root){
+  root.querySelectorAll('pre').forEach(pre => {
+    if (pre.dataset.copyReady) return;
+    pre.dataset.copyReady = '1';
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click', () => {
+      const codeEl = pre.querySelector('code');
+      const text = codeEl ? codeEl.innerText : pre.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied ✓';
+        setTimeout(() => btn.textContent = 'Copy', 1200);
+      }).catch(() => {
+        btn.textContent = 'Ctrl+C';
+        setTimeout(() => btn.textContent = 'Copy', 1200);
+      });
+    });
+    pre.appendChild(btn);
+  });
+}
+
+/* =========================================================
+   2. THE SCHEMA (drives both the ERD and the CRUD panel)
+   ========================================================= */
+const TABLES = {
+
+  categories: {
+    x: 30, y: 30,
+    desc: 'Lookup table for product categories. One category → many products.',
+    fields: [
+      { n:'id',   t:'serial',       k:'PK' },
+      { n:'name', t:'varchar(80)',  k:''   },
+      { n:'slug', t:'varchar(80)',  k:''   }
+    ],
+    ddl: `CREATE TABLE categories (
+  id    SERIAL PRIMARY KEY,
+  name  VARCHAR(80) NOT NULL UNIQUE,
+  slug  VARCHAR(80) NOT NULL UNIQUE
+);`,
+    insert: `-- CREATE  ➜ add a new category
+INSERT INTO categories (name, slug)
+VALUES ('Electronics', 'electronics')
+RETURNING id, name, slug;`,
+    select: `-- READ  ➜ list every category
+SELECT id, name, slug
+FROM categories
+ORDER BY name;
+
+-- READ one row by primary key
+SELECT *
+FROM categories
+WHERE id = 1;`,
+    update: `-- UPDATE  ➜ rename a category
+UPDATE categories
+SET name = 'Consumer Electronics'
+WHERE id = 1
+RETURNING *;`,
+    delete: `-- DELETE  ➜ remove a category
+-- (fails if products still point to it — FK RESTRICT/SET NULL)
+DELETE FROM categories
+WHERE id = 1
+RETURNING *;`
+  },
+
+  customers: {
+    x: 650, y: 30,
+    desc: 'People who place orders. One customer → many orders.',
+    fields: [
+      { n:'id',         t:'serial',      k:'PK' },
+      { n:'full_name',  t:'varchar(120)',k:''   },
+      { n:'email',      t:'varchar(160)',k:''   },
+      { n:'created_at', t:'timestamptz', k:''   }
+    ],
+    ddl: `CREATE TABLE customers (
+  id         SERIAL PRIMARY KEY,
+  full_name  VARCHAR(120) NOT NULL,
+  email      VARCHAR(160) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);`,
+    insert: `-- CREATE  ➜ insert, and skip silently if the email exists
+INSERT INTO customers (full_name, email)
+VALUES ('Ada Lovelace', 'ada@example.com')
+ON CONFLICT (email) DO NOTHING
+RETURNING id, full_name, created_at;`,
+    select: `-- READ  ➜ newest customers
+SELECT id, full_name, email, created_at
+FROM customers
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- READ with a case-insensitive search
+SELECT *
+FROM customers
+WHERE full_name ILIKE '%ada%'
+   OR email     ILIKE '%ada%';`,
+    update: `-- UPDATE  ➜ change a name
+UPDATE customers
+SET full_name = 'Ada Byron'
+WHERE id = 1
+RETURNING *;`,
+    delete: `-- DELETE  ➜ orders are removed too (ON DELETE CASCADE)
+DELETE FROM customers
+WHERE id = 1
+RETURNING id, full_name;`
+  },
+
+  products: {
+    x: 30, y: 230,
+    desc: 'Items for sale. Each product belongs to one category and can appear in many order items.',
+    fields: [
+      { n:'id',          t:'serial',      k:'PK' },
+      { n:'name',        t:'varchar(120)',k:''   },
+      { n:'price',       t:'numeric',     k:''   },
+      { n:'stock',       t:'int',         k:''   },
+      { n:'category_id', t:'int',         k:'FK' }
+    ],
+    ddl: `CREATE TABLE products (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(120) NOT NULL,
+  price       NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+  stock       INTEGER NOT NULL DEFAULT 0,
+  category_id INTEGER REFERENCES categories(id)
+              ON DELETE SET NULL
+);`,
+    insert: `-- CREATE  ➜ insert several products at once
+INSERT INTO products (name, price, stock, category_id) VALUES
+  ('Wireless Mouse',      29.99, 150, 1),
+  ('Mechanical Keyboard', 89.90,  60, 1),
+  ('USB-C Hub',           45.00,   0, 1)
+RETURNING id, name, price;`,
+    select: `-- READ  ➜ products with their category name
+SELECT p.id,
+       p.name,
+       p.price,
+       p.stock,
+       c.name AS category
+FROM products p
+LEFT JOIN categories c ON c.id = p.category_id
+WHERE p.price BETWEEN 10 AND 100
+ORDER BY p.price DESC;`,
+    update: `-- UPDATE  ➜ apply a 10% discount and reduce stock
+UPDATE products
+SET price = price * 0.90,
+    stock = stock - 5
+WHERE id = 3
+RETURNING id, name, price, stock;`,
+    delete: `-- DELETE  ➜ remove a product
+-- fails if order_items still reference it (FK NO ACTION)
+DELETE FROM products
+WHERE id = 3
+RETURNING *;`
+  },
+
+  orders: {
+    x: 650, y: 230,
+    desc: 'A purchase made by a customer. One order → many order items.',
+    fields: [
+      { n:'id',          t:'serial',      k:'PK' },
+      { n:'customer_id', t:'int',         k:'FK' },
+      { n:'order_date',  t:'timestamptz', k:''   },
+      { n:'status',      t:'varchar(20)', k:''   },
+      { n:'total',       t:'numeric',     k:''   }
+    ],
+    ddl: `CREATE TABLE orders (
+  id          SERIAL PRIMARY KEY,
+  customer_id INTEGER NOT NULL
+              REFERENCES customers(id) ON DELETE CASCADE,
+  order_date  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status      VARCHAR(20) NOT NULL DEFAULT 'pending',
+  total       NUMERIC(12,2) NOT NULL DEFAULT 0
+);`,
+    insert: `-- CREATE  ➜ open a new empty order for customer 1
+INSERT INTO orders (customer_id, status, total)
+VALUES (1, 'pending', 0)
+RETURNING id, order_date, status;`,
+    select: `-- READ  ➜ pending orders with the customer's name
+SELECT o.id,
+       c.full_name,
+       o.order_date,
+       o.status,
+       o.total
+FROM orders o
+JOIN customers c ON c.id = o.customer_id
+WHERE o.status = 'pending'
+ORDER BY o.order_date DESC;`,
+    update: `-- UPDATE  ➜ recalculate the total from its line items, then mark it paid
+UPDATE orders o
+SET total  = t.sum_total,
+    status = 'paid'
+FROM (
+  SELECT order_id, SUM(quantity * unit_price) AS sum_total
+  FROM order_items
+  WHERE order_id = 1
+  GROUP BY order_id
+) t
+WHERE t.order_id = o.id
+RETURNING o.*;`,
+    delete: `-- DELETE  ➜ delete the order; its items cascade away
+DELETE FROM orders
+WHERE id = 1
+RETURNING id, customer_id, total;`
+  },
+
+  order_items: {
+    x: 330, y: 420,
+    desc: 'Join table between orders and products — it stores quantity and the price at purchase time.',
+    fields: [
+      { n:'id',         t:'serial',  k:'PK' },
+      { n:'order_id',   t:'int',     k:'FK' },
+      { n:'product_id', t:'int',     k:'FK' },
+      { n:'quantity',   t:'int',     k:''   },
+      { n:'unit_price', t:'numeric', k:''   }
+    ],
+    ddl: `CREATE TABLE order_items (
+  id         SERIAL PRIMARY KEY,
+  order_id   INTEGER NOT NULL
+             REFERENCES orders(id)   ON DELETE CASCADE,
+  product_id INTEGER NOT NULL
+             REFERENCES products(id),
+  quantity   INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price NUMERIC(10,2) NOT NULL,
+  UNIQUE (order_id, product_id)
+);`,
+    insert: `-- CREATE  ➜ add a line item to order 1
+INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+VALUES (1, 2, 3, 29.99)
+RETURNING id, order_id, product_id, quantity;`,
+    select: `-- READ  ➜ the "receipt" for one order
+SELECT oi.id,
+       p.name AS product,
+       oi.quantity,
+       oi.unit_price,
+       (oi.quantity * oi.unit_price) AS line_total
+FROM order_items oi
+JOIN products p ON p.id = oi.product_id
+WHERE oi.order_id = 1
+ORDER BY oi.id;`,
+    update: `-- UPDATE  ➜ change the quantity of a line item
+UPDATE order_items
+SET quantity = 5
+WHERE id = 1
+RETURNING *, (quantity * unit_price) AS line_total;`,
+    delete: `-- DELETE  ➜ remove one line item
+DELETE FROM order_items
+WHERE id = 1
+RETURNING *;`
+  }
+};
+
+/* Relationship definitions (from-side / to-side anchors) */
+const RELATIONS = [
+  { from:'categories', fromSide:'bottom', to:'products',    toSide:'top',    label:'1 : N' },
+  { from:'customers',  fromSide:'bottom', to:'orders',      toSide:'top',    label:'1 : N' },
+  { from:'orders',     fromSide:'left',   to:'order_items', toSide:'right',  label:'1 : N' },
+  { from:'products',   fromSide:'right',  to:'order_items', toSide:'left',   label:'1 : N' }
+];
+
+/* =========================================================
+   3. RENDER THE ERD
+   ========================================================= */
+function renderERD(){
+  const canvas = document.getElementById('erdCanvas');
+  const svg = document.getElementById('erdLines');
+  canvas.querySelectorAll('.entity').forEach(e => e.remove());
+
+  Object.keys(TABLES).forEach(key => {
+    const t = TABLES[key];
+    const el = document.createElement('div');
+    el.className = 'entity';
+    el.dataset.table = key;
+    el.style.left = t.x + 'px';
+    el.style.top  = t.y + 'px';
+    el.innerHTML =
+      '<div class="entity-head">' + key + '</div>' +
+      '<ul class="entity-fields">' +
+        t.fields.map(f =>
+          '<li>' +
+            '<span class="fkey ' + (f.k === 'PK' ? 'pk' : f.k === 'FK' ? 'fk' : '') + '">' + (f.k || '') + '</span>' +
+            '<span class="fname">' + f.n + '</span>' +
+            '<span class="ftype">' + f.t + '</span>' +
+          '</li>'
+        ).join('') +
+      '</ul>';
+    el.addEventListener('click', () => selectTable(key));
+    canvas.appendChild(el);
+  });
+
+  drawLines();
+}
+
+function anchorPoint(el, side, canvasRect){
+  const r = el.getBoundingClientRect();
+  const x = r.left - canvasRect.left;
+  const y = r.top  - canvasRect.top;
+  switch (side){
+    case 'top':    return { x: x + r.width / 2, y: y };
+    case 'bottom': return { x: x + r.width / 2, y: y + r.height };
+    case 'left':   return { x: x,               y: y + r.height / 2 };
+    case 'right':  return { x: x + r.width,     y: y + r.height / 2 };
+  }
+  return { x, y };
+}
+
+function routePoints(p1, p2, s1, s2){
+  const horiz = s => (s === 'left' || s === 'right');
+  if (horiz(s1) && horiz(s2)){
+    const mx = (p1.x + p2.x) / 2;
+    return [p1, { x: mx, y: p1.y }, { x: mx, y: p2.y }, p2];
+  }
+  if (!horiz(s1) && !horiz(s2)){
+    const my = (p1.y + p2.y) / 2;
+    return [p1, { x: p1.x, y: my }, { x: p2.x, y: my }, p2];
+  }
+  if (horiz(s1)) return [p1, { x: p2.x, y: p1.y }, p2];
+  return [p1, { x: p1.x, y: p2.y }, p2];
+}
+
+function polylineMidpoint(pts){
+  const segs = [];
+  let total = 0;
+  for (let i = 0; i < pts.length - 1; i++){
+    const l = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+    segs.push(l); total += l;
+  }
+  if (total === 0) return pts[0];
+  let target = total / 2, acc = 0;
+  for (let i = 0; i < segs.length; i++){
+    if (segs[i] === 0) continue;
+    if (acc + segs[i] >= target){
+      const t = (target - acc) / segs[i];
+      return {
+        x: pts[i].x + (pts[i+1].x - pts[i].x) * t,
+        y: pts[i].y + (pts[i+1].y - pts[i].y) * t
+      };
+    }
+    acc += segs[i];
+  }
+  return pts[pts.length - 1];
+}
+
+function drawLines(){
+  const canvas = document.getElementById('erdCanvas');
+  const svg = document.getElementById('erdLines');
+  const NS = 'http://www.w3.org/2000/svg';
+  const crect = canvas.getBoundingClientRect();
+  if (crect.width === 0) return;      /* panel hidden — skip */
+
+  svg.innerHTML = '';
+
+  RELATIONS.forEach(rel => {
+    const a = canvas.querySelector('[data-table="' + rel.from + '"]');
+    const b = canvas.querySelector('[data-table="' + rel.to   + '"]');
+    if (!a || !b) return;
+
+    const p1 = anchorPoint(a, rel.fromSide, crect);
+    const p2 = anchorPoint(b, rel.toSide,   crect);
+    const pts = routePoints(p1, p2, rel.fromSide, rel.toSide);
+
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', 'M ' + pts.map(p => p.x + ' ' + p.y).join(' L '));
+    path.setAttribute('class', 'rel-line');
+    svg.appendChild(path);
+
+    [p1, p2].forEach(p => {
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', p.x);
+      c.setAttribute('cy', p.y);
+      c.setAttribute('r', 4);
+      c.setAttribute('class', 'rel-dot');
+      svg.appendChild(c);
+    });
+
+    const mid = polylineMidpoint(pts);
+    const txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('x', mid.x);
+    txt.setAttribute('y', mid.y - 8);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('class', 'rel-label');
+    txt.textContent = rel.label;
+    svg.appendChild(txt);
+  });
+}
+
+/* =========================================================
+   4. CRUD PANEL
+   ========================================================= */
+const CRUD_TABS = [
+  { id:'ddl',    label:'CREATE TABLE' },
+  { id:'insert', label:'INSERT · Create' },
+  { id:'select', label:'SELECT · Read' },
+  { id:'update', label:'UPDATE' },
+  { id:'delete', label:'DELETE' }
+];
+
+let currentTable = null;
+let currentTab = 'ddl';
+
+function selectTable(key){
+  currentTable = key;
+  currentTab = 'ddl';
+
+  document.querySelectorAll('.entity').forEach(e =>
+    e.classList.toggle('active', e.dataset.table === key)
+  );
+
+  const t = TABLES[key];
+  const panel = document.getElementById('crudPanel');
+  panel.classList.add('show');
+  document.getElementById('crudTitle').textContent = key;
+  document.getElementById('crudDesc').textContent  = t.desc;
+
+  const tabsEl = document.getElementById('crudTabs');
+  tabsEl.innerHTML = '';
+  CRUD_TABS.forEach(tab => {
+    const b = document.createElement('button');
+    b.className = 'crud-tab' + (tab.id === currentTab ? ' active' : '');
+    b.textContent = tab.label;
+    b.addEventListener('click', () => {
+      currentTab = tab.id;
+      tabsEl.querySelectorAll('.crud-tab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      renderCrudCode();
+    });
+    tabsEl.appendChild(b);
+  });
+
+  renderCrudCode();
+
+  if (window.innerWidth < 900){
+    panel.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+}
+
+function renderCrudCode(){
+  const codeEl = document.getElementById('crudCode');
+  const sql = TABLES[currentTable][currentTab] || '';
+  codeEl.innerHTML = highlightSQL(sql);
+  addCopyButtons(codeEl.closest('.crud-body'));
+}
+
+/* =========================================================
+   5. POSTGRESQL REFERENCE CONTENT
+   ========================================================= */
+const pgSections = [
+
+/* ---------------------------------------------------------- 1 */
+{
+  title: '1 · Connecting & psql basics',
+  items: [
+    { label:'Connect from the terminal', code:`psql -h localhost -p 5432 -U postgres -d shop` },
+    { label:'Connect with a connection URL', code:`psql "postgresql://user:pass@localhost:5432/shop"` },
+    { label:'Run a single query without opening a shell', code:`psql -U postgres -d shop -c "SELECT now();"` },
+    { label:'Execute a .sql script file', code:`psql -U postgres -d shop -f schema.sql` },
+    { label:'Most-used psql meta-commands', code:`\\l              -- list all databases
+\\c shop         -- connect to another database
+\\dt             -- list tables in the current schema
+\\d products     -- describe a table (columns, types, indexes, FKs)
+\\dn             -- list schemas
+\\du             -- list roles / users
+\\x              -- toggle expanded (vertical) output
+\\timing         -- toggle query timing
+\\e              -- open the last query in your editor
+\\q              -- quit` },
+    { label:'Write query output to a CSV file', code:`\\copy (SELECT * FROM orders) TO '/tmp/orders.csv' CSV HEADER` }
+  ]
+},
+
+/* ---------------------------------------------------------- 2 */
+{
+  title: '2 · DDL — databases, schemas & the full shop schema',
+  items: [
+    { label:'Create / drop a database', code:`CREATE DATABASE shop;
+DROP DATABASE IF EXISTS shop;` },
+    { label:'Schemas (namespaces)', code:`CREATE SCHEMA sales;
+SET search_path TO sales, public;
+DROP SCHEMA sales CASCADE;` },
+    { label:'The complete schema used in every example on this page', code:`CREATE TABLE customers (
+  id         SERIAL PRIMARY KEY,
+  full_name  VARCHAR(120) NOT NULL,
+  email      VARCHAR(160) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE categories (
+  id   SERIAL PRIMARY KEY,
+  name VARCHAR(80) NOT NULL UNIQUE,
+  slug VARCHAR(80) NOT NULL UNIQUE
+);
+
+CREATE TABLE products (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(120) NOT NULL,
+  price       NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+  stock       INTEGER NOT NULL DEFAULT 0,
+  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+);
+
+CREATE TABLE orders (
+  id          SERIAL PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  order_date  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status      VARCHAR(20) NOT NULL DEFAULT 'pending',
+  total       NUMERIC(12,2) NOT NULL DEFAULT 0
+);
+
+CREATE TABLE order_items (
+  id         SERIAL PRIMARY KEY,
+  order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  quantity   INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price NUMERIC(10,2) NOT NULL,
+  UNIQUE (order_id, product_id)
+);` },
+    { label:'ALTER TABLE — the everyday operations', code:`ALTER TABLE products ADD COLUMN description TEXT;
+ALTER TABLE products RENAME COLUMN description TO short_desc;
+ALTER TABLE products ALTER COLUMN price TYPE NUMERIC(12,2);
+ALTER TABLE products ALTER COLUMN stock SET DEFAULT 0;
+ALTER TABLE products ALTER COLUMN stock DROP DEFAULT;
+ALTER TABLE products ADD CONSTRAINT price_positive CHECK (price >= 0);
+ALTER TABLE products DROP CONSTRAINT price_positive;
+ALTER TABLE products ADD COLUMN category_id INTEGER REFERENCES categories(id);
+ALTER TABLE products DROP COLUMN short_desc;` },
+    { label:'Drop & truncate', code:`DROP TABLE IF EXISTS order_items, orders CASCADE;
+TRUNCATE order_items, orders RESTART IDENTITY CASCADE;` },
+    { label:'Copy a table (CTAS / LIKE)', code:`CREATE TABLE archived_orders AS
+SELECT * FROM orders WHERE status = 'cancelled';
+
+CREATE TABLE orders_copy (LIKE orders INCLUDING ALL);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 3 */
+{
+  title: '3 · Data types cheat sheet',
+  items: [
+    { label:'Numbers', code:`SMALLINT          -- 2 bytes
+INTEGER / INT     -- 4 bytes  (most common)
+BIGINT            -- 8 bytes
+NUMERIC(10,2)     -- exact decimal  ➜ use for money
+REAL / DOUBLE PRECISION  -- floating point (approximate)` },
+    { label:'Text', code:`TEXT              -- unlimited length  ➜ preferred in PostgreSQL
+VARCHAR(120)      -- length-limited
+CHAR(2)           -- blank-padded fixed length` },
+    { label:'Date & time', code:`DATE
+TIME
+TIMESTAMP         -- without time zone
+TIMESTAMPTZ       -- with time zone  ➜ prefer this one
+INTERVAL` },
+    { label:'Everything else', code:`BOOLEAN
+UUID
+JSON / JSONB      -- prefer JSONB (binary, indexable)
+BYTEA
+INTEGER[]         -- arrays
+INET / CIDR / MACADDR
+MONEY` }
+  ]
+},
+
+/* ---------------------------------------------------------- 4 */
+{
+  title: '4 · INSERT — creating rows',
+  items: [
+    { label:'Single row', code:`INSERT INTO categories (name, slug)
+VALUES ('Electronics', 'electronics');` },
+    { label:'Multiple rows in one statement', code:`INSERT INTO products (name, price, stock, category_id) VALUES
+  ('Wireless Mouse',      29.99, 150, 1),
+  ('Mechanical Keyboard', 89.90,  60, 1),
+  ('USB-C Hub',           45.00,   0, 1);` },
+    { label:'RETURNING — get generated values back', code:`INSERT INTO customers (full_name, email)
+VALUES ('Ada Lovelace', 'ada@example.com')
+RETURNING id, created_at;` },
+    { label:'INSERT … SELECT', code:`INSERT INTO archived_orders
+SELECT * FROM orders WHERE status = 'cancelled';` },
+    { label:'UPSERT — ON CONFLICT DO UPDATE', code:`INSERT INTO customers (full_name, email)
+VALUES ('Ada Lovelace', 'ada@example.com')
+ON CONFLICT (email)
+DO UPDATE SET full_name = EXCLUDED.full_name
+RETURNING *;` },
+    { label:'ON CONFLICT DO NOTHING — ignore duplicates', code:`INSERT INTO categories (name, slug)
+VALUES ('Electronics', 'electronics')
+ON CONFLICT DO NOTHING;` },
+    { label:'Bulk load from a CSV file (server side)', code:`COPY products (name, price, stock)
+FROM '/tmp/products.csv' CSV HEADER;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 5 */
+{
+  title: '5 · SELECT — the basics',
+  items: [
+    { label:'Select all / select columns', code:`SELECT * FROM products;
+SELECT name, price FROM products;` },
+    { label:'Column aliases & expressions', code:`SELECT name AS product_name,
+       price * 1.20 AS price_with_tax
+FROM products;` },
+    { label:'DISTINCT', code:`SELECT DISTINCT category_id FROM products;` },
+    { label:'ORDER BY + LIMIT / OFFSET', code:`SELECT *
+FROM products
+ORDER BY price DESC NULLS LAST
+LIMIT 10 OFFSET 20;` },
+    { label:'DISTINCT ON — first row per group', code:`SELECT DISTINCT ON (category_id)
+       category_id, name, price
+FROM products
+ORDER BY category_id, price DESC;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 6 */
+{
+  title: '6 · Filtering & operators (WHERE)',
+  items: [
+    { label:'Comparison & boolean logic', code:`SELECT * FROM orders
+WHERE status = 'paid' AND total > 100;` },
+    { label:'IN / NOT IN', code:`SELECT * FROM orders
+WHERE status IN ('paid', 'shipped');` },
+    { label:'BETWEEN (inclusive)', code:`SELECT * FROM products
+WHERE price BETWEEN 50 AND 200;` },
+    { label:'LIKE & ILIKE (case-insensitive)', code:`SELECT * FROM products WHERE name LIKE 'Wire%';
+SELECT * FROM products WHERE name ILIKE '%mouse%';
+SELECT * FROM products WHERE name ILIKE '%\\_%' ESCAPE '\\';` },
+    { label:'NULL handling', code:`SELECT * FROM customers WHERE email IS NOT NULL;
+SELECT * FROM products  WHERE category_id IS NULL;
+
+-- Note: NULL = NULL is never true — always use IS NULL / IS NOT NULL` },
+    { label:'ANY / ALL with arrays', code:`SELECT * FROM products WHERE id = ANY (ARRAY[1,2,3]);
+SELECT * FROM products WHERE price > ALL (SELECT price FROM products WHERE category_id = 2);` },
+    { label:'EXISTS', code:`SELECT * FROM products p
+WHERE EXISTS (
+  SELECT 1 FROM order_items oi WHERE oi.product_id = p.id
+);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 7 */
+{
+  title: '7 · UPDATE',
+  items: [
+    { label:'Basic update', code:`UPDATE products
+SET price = price * 1.10
+WHERE category_id = 1;` },
+    { label:'Multiple columns + RETURNING', code:`UPDATE products
+SET stock = stock - 1,
+    price = 19.99
+WHERE id = 3
+RETURNING *;` },
+    { label:'UPDATE … FROM (join style)', code:`UPDATE orders o
+SET total = t.sum_total
+FROM (
+  SELECT order_id, SUM(quantity * unit_price) AS sum_total
+  FROM order_items
+  GROUP BY order_id
+) t
+WHERE t.order_id = o.id;` },
+    { label:'UPDATE with a correlated subquery', code:`UPDATE products p
+SET stock = (SELECT COALESCE(SUM(quantity), 0)
+             FROM order_items oi
+             WHERE oi.product_id = p.id)
+WHERE p.id = 1;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 8 */
+{
+  title: '8 · DELETE',
+  items: [
+    { label:'Basic delete', code:`DELETE FROM order_items WHERE order_id = 5;` },
+    { label:'DELETE with RETURNING', code:`DELETE FROM orders
+WHERE status = 'cancelled'
+RETURNING id, customer_id, total;` },
+    { label:'DELETE … USING (join style)', code:`DELETE FROM order_items oi
+USING orders o
+WHERE oi.order_id = o.id
+  AND o.status = 'cancelled';` },
+    { label:'TRUNCATE — fast, resets everything', code:`TRUNCATE order_items RESTART IDENTITY CASCADE;` },
+    { label:'DELETE vs TRUNCATE', html:`<ul>
+      <li><code>DELETE</code> is row-by-row, fires triggers, can use <code>WHERE</code>, and can be rolled back.</li>
+      <li><code>TRUNCATE</code> is much faster, cannot use <code>WHERE</code>, and only fires <code>TRUNCATE</code> triggers.</li>
+    </ul>` }
+  ]
+},
+
+/* ---------------------------------------------------------- 9 */
+{
+  title: '9 · JOINs',
+  items: [
+    { label:'INNER JOIN — only matching rows', code:`SELECT o.id, c.full_name, o.total
+FROM orders o
+JOIN customers c ON c.id = o.customer_id;` },
+    { label:'LEFT JOIN — keep all rows from the left table', code:`SELECT c.full_name, o.id AS order_id
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+ORDER BY c.full_name;` },
+    { label:'RIGHT JOIN / FULL OUTER JOIN', code:`SELECT *
+FROM customers c
+RIGHT JOIN orders o ON o.customer_id = c.id;
+
+SELECT *
+FROM customers c
+FULL OUTER JOIN orders o ON o.customer_id = c.id;` },
+    { label:'CROSS JOIN — cartesian product', code:`SELECT c.name, p.name
+FROM categories c
+CROSS JOIN products p;` },
+    { label:'Self join (employees → manager)', code:`CREATE TABLE employees (
+  id SERIAL PRIMARY KEY,
+  full_name TEXT,
+  manager_id INT REFERENCES employees(id)
+);
+
+SELECT e.full_name AS employee,
+       m.full_name AS manager
+FROM employees e
+LEFT JOIN employees m ON m.id = e.manager_id;` },
+    { label:'USING — shorter syntax when column names match', code:`SELECT *
+FROM orders
+JOIN order_items USING (order_id);` },
+    { label:'LATERAL JOIN — per-row subquery', code:`SELECT c.full_name, t.last_total
+FROM customers c
+LEFT JOIN LATERAL (
+  SELECT total AS last_total
+  FROM orders o
+  WHERE o.customer_id = c.id
+  ORDER BY o.order_date DESC
+  LIMIT 1
+) t ON TRUE;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 10 */
+{
+  title: '10 · Aggregation — GROUP BY & HAVING',
+  items: [
+    { label:'COUNT variations', code:`SELECT COUNT(*)                  FROM orders;   -- all rows
+SELECT COUNT(DISTINCT customer_id) FROM orders;   -- unique customers
+SELECT COUNT(email)                FROM customers;-- ignores NULLs` },
+    { label:'GROUP BY + HAVING', code:`SELECT status,
+       COUNT(*)   AS orders_count,
+       SUM(total) AS revenue
+FROM orders
+GROUP BY status
+HAVING SUM(total) > 1000
+ORDER BY revenue DESC;` },
+    { label:'AVG with rounding', code:`SELECT category_id,
+       ROUND(AVG(price), 2) AS avg_price,
+       MIN(price) AS cheapest,
+       MAX(price) AS most_expensive
+FROM products
+GROUP BY category_id;` },
+    { label:'FILTER — conditional aggregation', code:`SELECT COUNT(*) FILTER (WHERE status = 'paid')    AS paid,
+       COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+       SUM(total) FILTER (WHERE status = 'paid')  AS paid_revenue
+FROM orders;` },
+    { label:'string_agg & array_agg', code:`SELECT string_agg(name, ', ' ORDER BY name) FROM products;
+SELECT category_id, array_agg(name) FROM products GROUP BY category_id;` },
+    { label:'ROLLUP / CUBE / GROUPING SETS', code:`SELECT category_id, status, SUM(total)
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.id
+JOIN products    p  ON p.id = oi.product_id
+GROUP BY ROLLUP (category_id, status);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 11 */
+{
+  title: '11 · Subqueries',
+  items: [
+    { label:'Scalar subquery', code:`SELECT (SELECT MAX(price) FROM products) AS max_price;` },
+    { label:'Subquery in WHERE', code:`SELECT *
+FROM products
+WHERE price > (SELECT AVG(price) FROM products);` },
+    { label:'IN with a subquery', code:`SELECT *
+FROM products
+WHERE id IN (SELECT product_id FROM order_items WHERE quantity > 3);` },
+    { label:'Correlated subquery', code:`SELECT c.id,
+       c.full_name,
+       (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id) AS order_count
+FROM customers c;` },
+    { label:'Derived table (subquery in FROM)', code:`SELECT t.customer_id, t.order_count
+FROM (
+  SELECT customer_id, COUNT(*) AS order_count
+  FROM orders
+  GROUP BY customer_id
+) AS t
+WHERE t.order_count > 2;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 12 */
+{
+  title: '12 · CTEs — WITH & RECURSIVE',
+  items: [
+    { label:'Simple CTE', code:`WITH paid AS (
+  SELECT * FROM orders WHERE status = 'paid'
+)
+SELECT customer_id, SUM(total) AS spent
+FROM paid
+GROUP BY customer_id;` },
+    { label:'Multiple CTEs', code:`WITH revenue AS (
+  SELECT order_id, SUM(quantity * unit_price) AS total
+  FROM order_items GROUP BY order_id
+),
+big_orders AS (
+  SELECT * FROM revenue WHERE total > 100
+)
+SELECT COUNT(*) FROM big_orders;` },
+    { label:'Recursive CTE — generate a series', code:`WITH RECURSIVE nums(n) AS (
+  SELECT 1
+  UNION ALL
+  SELECT n + 1 FROM nums WHERE n < 10
+)
+SELECT * FROM nums;` },
+    { label:'Recursive CTE — org chart / tree', code:`WITH RECURSIVE tree AS (
+  SELECT id, full_name, manager_id, 1 AS depth
+  FROM employees
+  WHERE manager_id IS NULL
+  UNION ALL
+  SELECT e.id, e.full_name, e.manager_id, t.depth + 1
+  FROM employees e
+  JOIN tree t ON e.manager_id = t.id
+)
+SELECT * FROM tree ORDER BY depth, full_name;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 13 */
+{
+  title: '13 · Window functions',
+  items: [
+    { label:'ROW_NUMBER / RANK / DENSE_RANK', code:`SELECT name,
+       price,
+       ROW_NUMBER() OVER (ORDER BY price DESC) AS row_num,
+       RANK()       OVER (ORDER BY price DESC) AS rank,
+       DENSE_RANK() OVER (ORDER BY price DESC) AS dense_rank
+FROM products;` },
+    { label:'PARTITION BY — rank inside each category', code:`SELECT name,
+       category_id,
+       price,
+       ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY price DESC) AS pos_in_category
+FROM products;` },
+    { label:'Running total', code:`SELECT customer_id,
+       order_date,
+       total,
+       SUM(total) OVER (PARTITION BY customer_id ORDER BY order_date) AS running_total
+FROM orders;` },
+    { label:'LAG / LEAD — compare with previous / next row', code:`SELECT order_date,
+       total,
+       LAG(total)  OVER (ORDER BY order_date) AS previous_total,
+       LEAD(total) OVER (ORDER BY order_date) AS next_total
+FROM orders;` },
+    { label:'NTILE — split into buckets', code:`SELECT name, price,
+       NTILE(4) OVER (ORDER BY price) AS quartile
+FROM products;` },
+    { label:'Moving average', code:`SELECT order_date, total,
+       AVG(total) OVER (ORDER BY order_date
+                        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS moving_avg_3
+FROM orders;` },
+    { label:'FIRST_VALUE / LAST_VALUE', code:`SELECT name, category_id, price,
+       FIRST_VALUE(name) OVER (PARTITION BY category_id ORDER BY price DESC) AS priciest
+FROM products;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 14 */
+{
+  title: '14 · Set operations',
+  items: [
+    { label:'UNION vs UNION ALL', code:`SELECT email FROM customers
+UNION            -- removes duplicates
+SELECT email FROM suppliers;
+
+SELECT email FROM customers
+UNION ALL        -- keeps everything (faster)
+SELECT email FROM suppliers;` },
+    { label:'INTERSECT & EXCEPT', code:`SELECT product_id FROM order_items WHERE order_id = 1
+INTERSECT
+SELECT product_id FROM order_items WHERE order_id = 2;
+
+SELECT id FROM products
+EXCEPT
+SELECT product_id FROM order_items;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 15 */
+{
+  title: '15 · CASE & conditional expressions',
+  items: [
+    { label:'Searched CASE', code:`SELECT name, price,
+       CASE
+         WHEN price < 20  THEN 'cheap'
+         WHEN price < 100 THEN 'mid-range'
+         ELSE 'premium'
+       END AS price_tier
+FROM products;` },
+    { label:'Simple CASE', code:`SELECT id,
+       CASE status
+         WHEN 'paid'    THEN '✅'
+         WHEN 'pending' THEN '⏳'
+         ELSE '❓'
+       END AS icon
+FROM orders;` },
+    { label:'COALESCE / NULLIF / GREATEST / LEAST', code:`SELECT COALESCE(description, 'n/a') FROM products;
+SELECT NULLIF(stock, 0) FROM products;         -- NULL when stock = 0
+SELECT GREATEST(10, 20, 5), LEAST(10, 20, 5);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 16 */
+{
+  title: '16 · Dates & times',
+  items: [
+    { label:'Current date / time', code:`SELECT now(), current_date, current_timestamp, current_time;` },
+    { label:'Interval arithmetic', code:`SELECT now() - INTERVAL '7 days' AS week_ago;
+SELECT order_date + INTERVAL '1 month' FROM orders;
+SELECT now() - created_at AS account_age FROM customers;` },
+    { label:'age() — human-readable difference', code:`SELECT age(now(), created_at) FROM customers;` },
+    { label:'date_trunc — group by month', code:`SELECT date_trunc('month', order_date) AS month,
+       SUM(total) AS revenue
+FROM orders
+GROUP BY 1
+ORDER BY 1;` },
+    { label:'EXTRACT — pull out a part', code:`SELECT EXTRACT(YEAR  FROM order_date) AS year,
+       EXTRACT(MONTH FROM order_date) AS month,
+       EXTRACT(DOW   FROM order_date) AS day_of_week
+FROM orders;` },
+    { label:'Formatting & parsing', code:`SELECT to_char(now(), 'YYYY-MM-DD HH24:MI:SS');
+SELECT to_char(now(), 'Day DD Mon YYYY');
+SELECT to_date('2024-03-01', 'YYYY-MM-DD');
+SELECT to_timestamp('2024-03-01 10:30', 'YYYY-MM-DD HH24:MI');` },
+    { label:'generate_series — build a date spine', code:`SELECT generate_series('2024-01-01'::date,
+                        '2024-12-01'::date,
+                        '1 month') AS month;` },
+    { label:'Filter by period', code:`SELECT * FROM orders
+WHERE order_date >= date_trunc('month', now())
+  AND order_date <  date_trunc('month', now()) + INTERVAL '1 month';` }
+  ]
+},
+
+/* ---------------------------------------------------------- 17 */
+{
+  title: '17 · String functions',
+  items: [
+    { label:'Concatenation', code:`SELECT 'Hello' || ' ' || 'World';
+SELECT concat('Hello', ' ', NULL, 'World');   -- NULLs are ignored` },
+    { label:'Case & length', code:`SELECT upper(name), lower(name), initcap(name), length(name) FROM products;` },
+    { label:'Substrings', code:`SELECT substring(name FROM 1 FOR 3) FROM products;
+SELECT left(name, 3), right(name, 3) FROM products;` },
+    { label:'Replace & trim', code:`SELECT replace(name, 'Mouse', 'Trackball') FROM products;
+SELECT trim('  padded  '), ltrim('  x'), rtrim('x  ');
+SELECT btrim('--hello--', '-');` },
+    { label:'Find position / split', code:`SELECT position('oo' IN name) FROM products;
+SELECT strpos(name, 'oo') FROM products;
+SELECT split_part(email, '@', 2) AS domain FROM customers;` },
+    { label:'format() — printf-style', code:`SELECT format('%s costs %s', name, price) FROM products;` },
+    { label:'Regular expressions', code:`SELECT regexp_replace('a1b22c333', '\\d+', '#', 'g');  -- a#b#c#
+SELECT regexp_matches('abc123', '(\\d+)');
+SELECT * FROM products WHERE name ~* '^wire';          -- ~  case-sensitive, ~* insensitive
+SELECT regexp_split_to_array('a,b,c', ',');` }
+  ]
+},
+
+/* ---------------------------------------------------------- 18 */
+{
+  title: '18 · JSON / JSONB',
+  items: [
+    { label:'Create & insert', code:`CREATE TABLE events (
+  id      SERIAL PRIMARY KEY,
+  payload JSONB NOT NULL
+);
+
+INSERT INTO events (payload) VALUES
+  ('{"user": "ada", "tags": ["a","b"], "ok": true}');` },
+    { label:'Extract: -> (jsonb) vs ->> (text)', code:`SELECT payload ->  'user' FROM events;   -- returns jsonb
+SELECT payload ->> 'user' FROM events;   -- returns text  ✅ use in WHERE/GROUP BY` },
+    { label:'Nested paths', code:`SELECT payload #> '{tags,0}'  FROM events;   -- jsonb
+SELECT payload #>> '{tags,0}' FROM events;   -- text` },
+    { label:'Filtering', code:`SELECT * FROM events WHERE payload @> '{"user": "ada"}';  -- contains
+SELECT * FROM events WHERE payload ? 'user';                    -- key exists
+SELECT * FROM events WHERE payload ->> 'user' = 'ada';` },
+    { label:'Expand arrays into rows', code:`SELECT id, jsonb_array_elements_text(payload -> 'tags') AS tag
+FROM events;` },
+    { label:'Update a key', code:`UPDATE events
+SET payload = jsonb_set(payload, '{user}', '"grace"')
+WHERE id = 1;` },
+    { label:'Aggregate back into JSON', code:`SELECT jsonb_agg(id) FROM events;
+SELECT jsonb_build_object('id', id, 'user', payload ->> 'user') FROM events;` },
+    { label:'Index JSONB', code:`CREATE INDEX idx_events_payload ON events USING GIN (payload);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 19 */
+{
+  title: '19 · Arrays',
+  items: [
+    { label:'Create arrays', code:`SELECT ARRAY[1, 2, 3];
+SELECT '{a,b,c}'::TEXT[];
+SELECT ARRAY(SELECT name FROM products);` },
+    { label:'ANY / ALL with arrays', code:`SELECT * FROM products WHERE id = ANY (ARRAY[1,2,3]);
+SELECT * FROM products WHERE id <> ALL (ARRAY[1,2,3]);` },
+    { label:'unnest — array to rows', code:`SELECT unnest(ARRAY['a','b','c']) AS letter;` },
+    { label:'Array helpers', code:`SELECT array_length(ARRAY[1,2,3], 1);   -- 3
+SELECT ARRAY[1,2,3] @> ARRAY[2];        -- contains ➜ true
+SELECT ARRAY[1,2] || ARRAY[3,4];        -- concatenate
+SELECT array_agg(name) FROM products;   -- rows to array` }
+  ]
+},
+
+/* ---------------------------------------------------------- 20 */
+{
+  title: '20 · Indexes & performance',
+  items: [
+    { label:'Basic & composite indexes', code:`CREATE INDEX idx_products_category ON products (category_id);
+
+CREATE INDEX idx_orders_customer_date
+  ON orders (customer_id, order_date DESC);` },
+    { label:'Unique & expression indexes', code:`CREATE UNIQUE INDEX uq_customers_email_lower
+  ON customers (lower(email));
+
+CREATE INDEX idx_products_name_lower ON products (lower(name));` },
+    { label:'Partial index (index only what you query)', code:`CREATE INDEX idx_orders_pending
+  ON orders (order_date)
+  WHERE status = 'pending';` },
+    { label:'GIN index for JSONB / arrays / full-text', code:`CREATE INDEX idx_events_payload ON events USING GIN (payload);` },
+    { label:'Maintenance', code:`DROP INDEX IF EXISTS idx_orders_pending;
+REINDEX TABLE products;
+CREATE INDEX CONCURRENTLY idx_big ON big_table (col);  -- no long lock` },
+    { label:'EXPLAIN — see the plan', code:`EXPLAIN SELECT * FROM orders WHERE customer_id = 1;
+EXPLAIN ANALYZE SELECT * FROM orders WHERE customer_id = 1;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 21 */
+{
+  title: '21 · Views & materialized views',
+  items: [
+    { label:'Create a view', code:`CREATE VIEW v_order_totals AS
+SELECT o.id,
+       c.full_name,
+       SUM(oi.quantity * oi.unit_price) AS total
+FROM orders o
+JOIN customers   c  ON c.id = o.customer_id
+JOIN order_items oi ON oi.order_id = o.id
+GROUP BY o.id, c.full_name;` },
+    { label:'Use / replace / drop', code:`SELECT * FROM v_order_totals WHERE total > 100;
+CREATE OR REPLACE VIEW v_order_totals AS ...;
+DROP VIEW IF EXISTS v_order_totals;` },
+    { label:'Materialized view (stores the result on disk)', code:`CREATE MATERIALIZED VIEW mv_monthly AS
+SELECT date_trunc('month', order_date) AS month, SUM(total) AS revenue
+FROM orders
+GROUP BY 1;
+
+REFRESH MATERIALIZED VIEW mv_monthly;
+
+-- Concurrent refresh needs a unique index first:
+CREATE UNIQUE INDEX ON mv_monthly (month);
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 22 */
+{
+  title: '22 · Functions & procedures',
+  items: [
+    { label:'Simple SQL function', code:`CREATE OR REPLACE FUNCTION add_tax(price NUMERIC)
+RETURNS NUMERIC
+LANGUAGE SQL
+IMMUTABLE
+AS $$
+  SELECT price * 1.20;
+$$;
+
+SELECT add_tax(100);` },
+    { label:'PL/pgSQL function returning a table', code:`CREATE OR REPLACE FUNCTION customer_orders(p_id INT)
+RETURNS TABLE (order_id INT, total NUMERIC)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  RETURN QUERY
+    SELECT o.id, o.total
+    FROM orders o
+    WHERE o.customer_id = p_id;
+END;
+$$;
+
+SELECT * FROM customer_orders(1);` },
+    { label:'Procedure (can manage transactions)', code:`CREATE OR REPLACE PROCEDURE reset_stock()
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  UPDATE products SET stock = 0;
+  COMMIT;
+END;
+$$;
+
+CALL reset_stock();` },
+    { label:'Drop / list', code:`DROP FUNCTION IF EXISTS add_tax(NUMERIC);
+\\df` }
+  ]
+},
+
+/* ---------------------------------------------------------- 23 */
+{
+  title: '23 · Triggers',
+  items: [
+    { label:'Reusable updated_at trigger', code:`ALTER TABLE products ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_products_updated
+BEFORE UPDATE ON products
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();` },
+    { label:'Audit-log trigger', code:`CREATE TABLE product_audit (
+  id SERIAL PRIMARY KEY,
+  product_id INT,
+  old_price NUMERIC,
+  new_price NUMERIC,
+  changed_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION log_price_change()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.price <> OLD.price THEN
+    INSERT INTO product_audit (product_id, old_price, new_price)
+    VALUES (OLD.id, OLD.price, NEW.price);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_price_audit
+AFTER UPDATE ON products
+FOR EACH ROW
+EXECUTE FUNCTION log_price_change();` },
+    { label:'Manage triggers', code:`DROP TRIGGER IF EXISTS trg_products_updated ON products;
+ALTER TABLE products DISABLE TRIGGER trg_products_updated;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 24 */
+{
+  title: '24 · Transactions, isolation & locking',
+  items: [
+    { label:'BEGIN / COMMIT / ROLLBACK', code:`BEGIN;
+UPDATE products SET stock = stock - 1 WHERE id = 1;
+UPDATE orders   SET status = 'paid'  WHERE id = 10;
+COMMIT;      -- or ROLLBACK;` },
+    { label:'SAVEPOINT', code:`BEGIN;
+UPDATE products SET price = 10 WHERE id = 1;
+SAVEPOINT sp1;
+DELETE FROM products WHERE id = 2;
+ROLLBACK TO sp1;      -- undoes only the DELETE
+COMMIT;` },
+    { label:'Isolation levels', code:`BEGIN ISOLATION LEVEL SERIALIZABLE;
+-- also: READ COMMITTED (default), REPEATABLE READ
+COMMIT;
+
+SET TRANSACTION READ ONLY;` },
+    { label:'Row-level locking', code:`BEGIN;
+SELECT * FROM products WHERE id = 1 FOR UPDATE;          -- exclusive
+SELECT * FROM products WHERE id = 1 FOR NO KEY UPDATE;
+SELECT * FROM products WHERE id = 1 FOR SHARE;           -- shared
+COMMIT;` },
+    { label:'Skip locked rows (job queues)', code:`SELECT * FROM jobs
+ORDER BY id
+LIMIT 1
+FOR UPDATE SKIP LOCKED;` },
+    { label:'Advisory locks', code:`SELECT pg_advisory_lock(42);
+SELECT pg_advisory_unlock(42);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 25 */
+{
+  title: '25 · Constraints & referential integrity',
+  items: [
+    { label:'Primary & foreign keys', code:`CREATE TABLE t (
+  id        SERIAL PRIMARY KEY,
+  parent_id INT REFERENCES parents(id)
+            ON DELETE CASCADE     -- or SET NULL / RESTRICT / NO ACTION
+            ON UPDATE CASCADE
+);` },
+    { label:'UNIQUE & CHECK', code:`ALTER TABLE products ADD CONSTRAINT uq_product_name UNIQUE (name);
+ALTER TABLE products ADD CONSTRAINT price_pos CHECK (price >= 0);` },
+    { label:'Composite & deferred keys', code:`ALTER TABLE order_items
+  ADD CONSTRAINT fk_order
+  FOREIGN KEY (order_id) REFERENCES orders(id)
+  DEFERRABLE INITIALLY DEFERRED;` },
+    { label:'On the fly', code:`ALTER TABLE products DROP CONSTRAINT price_pos;
+ALTER TABLE products VALIDATE CONSTRAINT price_pos;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 26 */
+{
+  title: '26 · Sequences & identity columns',
+  items: [
+    { label:'Manual sequence', code:`CREATE SEQUENCE order_seq START 1000 INCREMENT 1;
+
+SELECT nextval('order_seq');
+SELECT currval('order_seq');
+SELECT setval('order_seq', 5000);` },
+    { label:'Identity columns (modern replacement for SERIAL)', code:`CREATE TABLE tickets (
+  id   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT
+);
+
+-- GENERATED BY DEFAULT allows manual inserts
+CREATE TABLE tickets2 (
+  id   BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY
+);` }
+  ]
+},
+
+/* ---------------------------------------------------------- 27 */
+{
+  title: '27 · Roles & privileges',
+  items: [
+    { label:'Create a role', code:`CREATE ROLE app_user LOGIN PASSWORD 'secret';` },
+    { label:'Grant privileges', code:`GRANT CONNECT ON DATABASE shop TO app_user;
+GRANT USAGE ON SCHEMA public TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;` },
+    { label:'Default privileges for future tables', code:`ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT ON TABLES TO app_user;` },
+    { label:'Revoke & drop', code:`REVOKE DELETE ON orders FROM app_user;
+DROP ROLE app_user;` }
+  ]
+},
+
+/* ---------------------------------------------------------- 28 */
+{
+  title: '28 · Administration & maintenance',
+  items: [
+    { label:'Version & sessions', code:`SELECT version();
+
+SELECT pid, usename, state, query
+FROM pg_stat_activity
+WHERE state <> 'idle';` },
+    { label:'Cancel / terminate a query', code:`SELECT pg_cancel_backend(1234);
+SELECT pg_terminate_backend(1234);` },
+    { label:'Database & table sizes', code:`SELECT pg_size_pretty(pg_database_size('shop'));
+
+SELECT relname,
+       pg_size_pretty(pg_total_relation_size(relid)) AS total_size
+FROM pg_catalog.pg_statio_user_tables
+ORDER BY pg_total_relation_size(relid) DESC;` },
+    { label:'Maintenance', code:`VACUUM (ANALYZE, VERBOSE) products;
+ANALYZE products;
+REINDEX TABLE products;` },
+    { label:'Backup & restore (from the shell)', code:`pg_dump -U postgres -d shop -Fc -f shop.dump
+pg_restore -U postgres -d shop_new shop.dump
+pg_dump -U postgres -d shop --schema-only > schema.sql
+pg_dump -U postgres -d shop -t orders --data-only > orders.sql` }
+  ]
+},
+
+/* ---------------------------------------------------------- 29 */
+{
+  title: '29 · Gotchas & best practices',
+  items: [
+    { label:'Things that bite beginners', html:`<ul>
+      <li><strong>NULL is not a value.</strong> Use <code>IS NULL</code>, never <code>= NULL</code>. NULLs also disappear from <code>COUNT(col)</code> and break <code>NOT IN</code>.</li>
+      <li><strong>Always use <code>TIMESTAMPTZ</code></strong> instead of <code>TIMESTAMP</code>. It stores UTC and converts on read.</li>
+      <li><strong>Never use <code>SELECT *</code></strong> in production code — column order and width change.</li>
+      <li><strong>Identifiers are folded to lowercase</strong> unless you quote them. <code>"MyTable"</code> ≠ <code>mytable</code>.</li>
+      <li><strong>Transactions are your friend:</strong> wrap multi-step writes in <code>BEGIN … COMMIT</code>.</li>
+      <li><strong>Indexes cost writes.</strong> Add them for real query patterns, not "just in case".</li>
+      <li><strong>Use <code>ON CONFLICT</code></strong> instead of "SELECT then INSERT" — that pattern has a race condition.</li>
+      <li><strong>Check the plan.</strong> <code>EXPLAIN ANALYZE</code> reveals sequential scans on large tables.</li>
+      <li><strong>Foreign keys default to <code>NO ACTION</code></strong> — deletes fail instead of cascading. Choose deliberately.</li>
+      <li><strong>Prefer <code>NUMERIC</code> for money</strong>, never <code>REAL</code>/<code>DOUBLE</code>.</li>
+    </ul>` }
+  ]
+}
+
+];
+
+/* =========================================================
+   6. RENDER THE POSTGRESQL SECTION
+   ========================================================= */
+function renderPG(){
+  const root = document.getElementById('pgContent');
+  root.innerHTML = pgSections.map((sec, i) => `
+    <details class="pg-sec"${i === 0 ? ' open' : ''}>
+      <summary>${sec.title}</summary>
+      <div class="pg-items">
+        ${sec.items.map(it => `
+          <div class="pg-item">
+            <div class="pg-label">${it.label}</div>
+            ${it.code ? '<pre><code>' + highlightSQL(it.code) + '</code></pre>' : ''}
+            ${it.html ? it.html : ''}
+          </div>`).join('')}
+      </div>
+    </details>`).join('');
+
+  addCopyButtons(root);
+  updateCount();
+}
+
+function updateCount(){
+  const visible = [...document.querySelectorAll('.pg-item')]
+                    .filter(el => el.style.display !== 'none').length;
+  document.getElementById('pgCount').textContent = visible + ' examples';
+}
+
+/* search filter */
+document.getElementById('pgSearch').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.pg-sec').forEach(sec => {
+    let visible = 0;
+    sec.querySelectorAll('.pg-item').forEach(item => {
+      const match = !q || item.textContent.toLowerCase().includes(q);
+      item.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    sec.style.display = visible ? '' : 'none';
+    if (q && visible) sec.open = true;
+  });
+  updateCount();
+});
+
+/* =========================================================
+   7. MAIN TABS
+   ========================================================= */
+document.querySelectorAll('.tabbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p =>
+      p.classList.toggle('active', p.id === btn.dataset.target)
+    );
+    if (btn.dataset.target === 'erd'){
+      setTimeout(drawLines, 40);   /* canvas was hidden — redraw */
+    }
+  });
+});
+
+/* =========================================================
+   8. BOOT
+   ========================================================= */
+renderERD();
+renderPG();
+addCopyButtons(document);
+
+window.addEventListener('resize', () => {
+  clearTimeout(window.__erdT);
+  window.__erdT = setTimeout(drawLines, 120);
+});
+</script>
+</body>
+</html>
